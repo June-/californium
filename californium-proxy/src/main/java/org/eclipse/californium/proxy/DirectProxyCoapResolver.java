@@ -17,6 +17,7 @@
  ******************************************************************************/
 package org.eclipse.californium.proxy;
 
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.eclipse.californium.core.network.Exchange;
@@ -29,7 +30,10 @@ public class DirectProxyCoapResolver implements ProxyCoapResolver {
 	
 	private ForwardingResource proxyCoapClientResource;
 	
-	public DirectProxyCoapResolver() { }
+	public DirectProxyCoapResolver() { 
+		LOGGER.setLevel(Level.ALL);	
+		
+	}
 	
 	public DirectProxyCoapResolver(ForwardingResource proxyCoapClientResource) {
 		this.proxyCoapClientResource = proxyCoapClientResource;
@@ -45,7 +49,10 @@ public class DirectProxyCoapResolver implements ProxyCoapResolver {
 
 	@Override
 	public void forwardRequest(Exchange exchange) {
-		LOGGER.fine("Forward CoAP request to ProxyCoap2Coap: "+exchange.getRequest());
+		LOGGER.fine("(DirectProxyCoapResolver 把请求交给资源 ForwardResource) Forward CoAP request to ProxyCoap2Coap: \n\t"+exchange.getRequest());
+		/*
+		 * 这里的 exchange 没有包含响应结果吧？
+		 */
 		proxyCoapClientResource.handleRequest(exchange);
 	}
 }

@@ -1,3 +1,4 @@
+
 /*******************************************************************************
  * Copyright (c) 2015 Institute for Pervasive Computing, ETH Zurich and others.
  * 
@@ -77,9 +78,10 @@ public class ExampleCrossProxy {
 		
 		@Override
 		public void handleGET(CoapExchange exchange) {
-			exchange.respond("Response "+(++counter)+" from resource " + getName());
+			exchange.respond("Response "+ (++counter) +" from resource " + getName());
 		}
 	}
+
 	
 	public static void main(String[] args) throws Exception {
 		new ExampleCrossProxy();

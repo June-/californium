@@ -35,9 +35,11 @@ public abstract class ForwardingResource extends CoapResource {
 
 	@Override
 	public void handleRequest(Exchange exchange) {
-		exchange.sendAccept();
-		Response response = forwardRequest(exchange.getRequest());
-		exchange.sendResponse(response);
+		exchange.sendAccept();  // 单独响应client端一个空ack
+		
+		Response response = forwardRequest(exchange.getRequest());  // 代理向服务端请求资源
+		
+		exchange.sendResponse(response);  // 回复Client端
 	}
 
 	public abstract Response forwardRequest(Request request);

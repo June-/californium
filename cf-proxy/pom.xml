@@ -40,6 +40,14 @@
 			<artifactId>californium-proxy</artifactId>
 			<version>${project.version}</version>
 		</dependency>
+
+	<!-- 使用 WebSocket 库 -->
+	<dependency>
+		<groupId>org.java-websocket</groupId>
+		<artifactId>Java-WebSocket</artifactId>
+		<version>1.3.0</version>
+	</dependency> 
+		
 	</dependencies>
 
 	<build>

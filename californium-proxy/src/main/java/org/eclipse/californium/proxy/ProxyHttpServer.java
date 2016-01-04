@@ -35,7 +35,6 @@ import org.eclipse.californium.core.network.config.NetworkConfig;
 import org.eclipse.californium.proxy.resources.ProxyCacheResource;
 import org.eclipse.californium.proxy.resources.StatsResource;
 
-
 /**
  * The class represent the container of the resources and the layers used by the
  * proxy. A URI of an HTTP request might look like this:
@@ -44,13 +43,13 @@ import org.eclipse.californium.proxy.resources.StatsResource;
 public class ProxyHttpServer {
 
 	private final static Logger LOGGER = Logger.getLogger(ProxyHttpServer.class.getCanonicalName());
-	
+
 	private static final String PROXY_COAP_CLIENT = "proxy/coapClient";
 	private static final String PROXY_HTTP_CLIENT = "proxy/httpClient";
 
 	private final ProxyCacheResource cacheResource = new ProxyCacheResource(true);
 	private final StatsResource statsResource = new StatsResource(cacheResource);
-	
+
 	private ProxyCoapResolver proxyCoapResolver;
 	private HttpStack httpStack;
 
@@ -73,29 +72,34 @@ public class ProxyHttpServer {
 	 *             the socket exception
 	 */
 	public ProxyHttpServer(int httpPort) throws IOException {
-	
 		this.httpStack = new HttpStack(httpPort);
 		this.httpStack.setRequestHandler(new RequestHandler() {
 			public void handleRequest(Request request) {
 				ProxyHttpServer.this.handleRequest(request);
 			}
 		});
+
 	}
 
 	public void handleRequest(final Request request) {
-		
-		LOGGER.info("ProxyEndpoint handles request "+request);
-		
+
+		LOGGER.info("ProxyEndpoint handles request " + request);
+
+		/*
+		 * exchange 在此被 new 出来！
+		 */
 		Exchange exchange = new Exchange(request, Origin.REMOTE) {
 
 			@Override
 			public void sendAccept() {
 				// has no meaning for HTTP: do nothing
 			}
+
 			@Override
 			public void sendReject() {
 				// TODO: close the HTTP connection to signal rejection
 			}
+
 			@Override
 			public void sendResponse(Response response) {
 				// Redirect the response to the HttpStack instead of a normal
@@ -112,16 +116,15 @@ public class ProxyHttpServer {
 			}
 		};
 		exchange.setRequest(request);
-		
+
 		Response response = null;
 		// ignore the request if it is reset or acknowledge
 		// check if the proxy-uri is defined
-		if (request.getType() != Type.RST && request.getType() != Type.ACK 
-				&& request.getOptions().hasProxyUri()) {
+		if (request.getType() != Type.RST && request.getType() != Type.ACK && request.getOptions().hasProxyUri()) {
 			// get the response from the cache
 			response = cacheResource.getResponse(request);
 
-				LOGGER.info("Cache returned "+response);
+			LOGGER.info("（先看缓存有无数据）Cache returned " + response);
 
 			// update statistics
 			statsResource.updateStatistics(request, response != null);
@@ -129,18 +132,31 @@ public class ProxyHttpServer {
 
 		// check if the response is present in the cache
 		if (response != null) {
+			/*
+			 * 如果有缓存：
+			 * 调用上文 exchange 重写了的 sendResponse() 方法
+			 * 也即调用 HttpStack 的 protected 方法 doSendResponse()
+			 */			
 			// link the retrieved response with the request to set the
-			// parameters request-specific (i.e., token, id, etc)
+			// parameters request-specific (i.e., token, id, etc)		
+			LOGGER.info("已经请求过了，缓存有数据，直接回复");
+System.out.println("\n\n已经请求过了，缓存有数据，直接回复\n\n");
 			exchange.sendResponse(response);
 			return;
 		} else {
-
+			
+			/*
+			 * 如果没有缓存：
+			 * 交给 proxyCoapResolver 代为处理
+			 */
 			// edit the request to be correctly forwarded if the proxy-uri is
 			// set
+			LOGGER.info("这是第一次请求，缓存无数据");
+
 			if (request.getOptions().hasProxyUri()) {
 				try {
 					manageProxyUriRequest(request);
-					LOGGER.info("after manageProxyUriRequest: "+request);
+					LOGGER.info("after manageProxyUriRequest: \n\t" + request);
 
 				} catch (URISyntaxException e) {
 					LOGGER.warning(String.format("Proxy-uri malformed: %s", request.getOptions().getProxyUri()));
@@ -152,11 +168,10 @@ public class ProxyHttpServer {
 			// handle the request as usual
 			proxyCoapResolver.forwardRequest(exchange);
 			/*
-			 * Martin:
-			 * Originally, the request was delivered to the ProxyCoAP2Coap which was at the path
-			 * proxy/coapClient or to proxy/httpClient
-			 * This approach replaces this implicit fuzzy connection with an explicit
-			 * and dynamically changeable one.
+			 * Martin: Originally, the request was delivered to the
+			 * ProxyCoAP2Coap which was at the path proxy/coapClient or to
+			 * proxy/httpClient This approach replaces this implicit fuzzy
+			 * connection with an explicit and dynamically changeable one.
 			 */
 		}
 	}
@@ -186,21 +201,21 @@ public class ProxyHttpServer {
 			clientPath = PROXY_COAP_CLIENT;
 		}
 
-		LOGGER.info("Chose "+clientPath+" as clientPath");
+		LOGGER.info("Chose " + clientPath + " as clientPath");
 
 		// set the path in the request to be forwarded correctly
 		request.getOptions().setUriPath(clientPath);
-		
+
 	}
 
 	protected void responseProduced(Request request, Response response) {
 		// check if the proxy-uri is defined
 		if (request.getOptions().hasProxyUri()) {
-				LOGGER.info("Cache response");
+			LOGGER.info("Cache response");
 			// insert the response in the cache
 			cacheResource.cacheResponse(request, response);
 		} else {
-				LOGGER.info("Do not cache response");
+			LOGGER.info("Do not cache response");
 		}
 	}
 
@@ -211,5 +226,5 @@ public class ProxyHttpServer {
 	public void setProxyCoapResolver(ProxyCoapResolver proxyCoapResolver) {
 		this.proxyCoapResolver = proxyCoapResolver;
 	}
-	
+
 }
