@@ -1,7 +1,7 @@
 package org.eclipse.californium.examples;
 
-import java.net.InetSocketAddress;
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
@@ -12,8 +12,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.eclipse.californium.core.coap.CoAP.ResponseCode;
 import org.eclipse.californium.core.coap.CoAP.Type;
+import org.eclipse.californium.core.coap.EmptyMessage;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.network.Exchange;
@@ -22,25 +22,24 @@ import org.eclipse.californium.core.network.config.NetworkConfig;
 import org.eclipse.californium.core.network.serialization.DataParser;
 import org.eclipse.californium.core.network.serialization.DataSerializer;
 import org.eclipse.californium.proxy.ProxyCoapResolver;
-import org.eclipse.californium.proxy.RequestHandler;
 import org.eclipse.californium.proxy.resources.ProxyCacheResource;
 import org.eclipse.californium.proxy.resources.StatsResource;
 import org.java_websocket.WebSocket;
 import org.java_websocket.WebSocketImpl;
+import org.java_websocket.exceptions.WebsocketNotConnectedException;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
 
 /*
- * 仿照 ProxyHttpServer
+ * Analog to ProxyHttpServer
+ * 
+ * 
+ * 
  */
 public class ProxyWebsocketServer extends WebSocketServer {
-
-	// 日志
 	private final static Logger LOGGER = Logger.getLogger(ProxyWebsocketServer.class.getCanonicalName());
-
 	private static final String PROXY_COAP_CLIENT = "proxy/coapClient";
 	private static final String PROXY_WS_CLIENT = "proxy/wsclient";
-
 	// 缓存
 	private final ProxyCacheResource cacheResource = new ProxyCacheResource(true);
 	private final StatsResource statsResource = new StatsResource(cacheResource);
@@ -60,7 +59,7 @@ public class ProxyWebsocketServer extends WebSocketServer {
 	private final ConcurrentHashMap<Request, Exchanger<Response>> exchangeMap = new ConcurrentHashMap<Request, Exchanger<Response>>();
 
 	/*
-	 * 这里需要考虑！！！
+	 * 
 	 */
 	public ProxyWebsocketServer(int wsPort) throws UnknownHostException {
 		super(new InetSocketAddress(wsPort));
@@ -271,7 +270,7 @@ public class ProxyWebsocketServer extends WebSocketServer {
 				/*
 				 * TODO 稍微详细的异常处理
 				 */
-				e.printStackTrace();
+				//e.printStackTrace();
 			} finally {
 				exchangeMap.remove(coapRequest);
 
@@ -288,9 +287,15 @@ public class ProxyWebsocketServer extends WebSocketServer {
 				return;
 			}
 
-			byte[] outgoingResponse = new DataSerializer().serializeResponse(coapResponse);
-			LOGGER.info("正在将 coapResponse 回复给 Client 端\n\t: " + outgoingResponse);
-			conn.send(outgoingResponse);
+			if (conn.isOpen()) {
+				byte[] outgoingResponse = new DataSerializer().serializeResponse(coapResponse);
+				LOGGER.info("正在将 coapResponse 回复给 Client 端\n\t: " + coapResponse);
+				try {
+				conn.send(outgoingResponse);
+				} catch(WebsocketNotConnectedException e) {
+					LOGGER.info(conn + "关闭了连接！");
+				}
+			}
 		}
 	}
 
@@ -304,11 +309,13 @@ public class ProxyWebsocketServer extends WebSocketServer {
 		LOGGER.info("接受了新的websocket连接: " + conn.getRemoteSocketAddress());
 
 		conn.send("已连接，这是一条服务器主动发起的的消息");
+		LOGGER.info("已连接，这是一条服务器主动发起的的消息");
 	}
 
 	@Override
 	public void onClose(WebSocket conn, int code, String reason, boolean remote) {
 		LOGGER.info(conn + "关闭了连接！");
+		conn.close();
 	}
 
 	@Override
@@ -317,6 +324,7 @@ public class ProxyWebsocketServer extends WebSocketServer {
 		LOGGER.info("收到ByteBuffer: " + message);
 
 		DataParser ds = new DataParser(message.array());
+				
 		if (ds.isRequest()) {
 			Request coapRequest = ds.parseRequest();
 			LOGGER.info("收到作为 WebSocket payload 的 coap 请求：\n\t" + coapRequest + "\n");
@@ -328,7 +336,11 @@ public class ProxyWebsocketServer extends WebSocketServer {
 			requestWorker.start();
 			responseWorker.start();
 			LOGGER.fine("启动 requestWorker, responseWorker 线程以接收响应消息");
-		} 
+		} else if (ds.isEmpty()) {
+			EmptyMessage em = ds.parseEmptyMessage();
+			LOGGER.info("收到作为 WebSocket payload 的 coap 空消息：\n\t" + em + "\n");
+
+		}
 
 		/*
 		 * 未作异常处理！！！
@@ -346,8 +358,7 @@ public class ProxyWebsocketServer extends WebSocketServer {
 
 	@Override
 	public void onMessage(WebSocket conn, String message) {
-		// TODO Auto-generated method stub
-
+		LOGGER.info("收到String: " + message);
 	}
 
 	public static void main(String[] args) throws InterruptedException, IOException {
