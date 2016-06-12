@@ -161,6 +161,9 @@ public class Matcher {
 		
 		exchangesByMID.put(idByMID, exchange);
 		exchangesByToken.put(idByToken, exchange);
+		
+/*		//by SmartJune
+		LOGGER.fine("**************\nexchangesByToken.put()\n" + "idByToken: " + idByToken + "\nexchange: " + exchange);*/
 	}
 
 	public void sendResponse(Exchange exchange, Response response) {
